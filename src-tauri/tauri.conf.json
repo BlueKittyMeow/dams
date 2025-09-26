@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0.0",
+  "productName": "Creative Work Preservation Toolkit",
+  "version": "0.1.0",
+  "identifier": "com.cwpt.preservation-toolkit",
+  "build": {
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist",
+    "beforeDevCommand": "npm run dev"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Creative Work Preservation Toolkit",
+        "width": 1200,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "dragDropEnabled": true,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all"
+  }
+}
