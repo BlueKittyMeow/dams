@@ -4,13 +4,14 @@
   "version": "0.1.0",
   "identifier": "com.cwpt.preservation-toolkit",
   "build": {
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:1530",
     "frontendDist": "../dist",
     "beforeDevCommand": "npm run dev"
   },
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Creative Work Preservation Toolkit",
         "width": 1200,
         "height": 800,

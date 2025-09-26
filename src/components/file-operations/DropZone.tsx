@@ -1,5 +1,6 @@
 import { useEffect, useState, type FC, type ReactNode } from 'react'
-import { listen } from '@tauri-apps/api/event'
+import { getCurrentWebview, type DragDropEvent } from '@tauri-apps/api/webview'
+import type { UnlistenFn } from '@tauri-apps/api/event'
 
 interface DroppedFile {
   path: string
@@ -18,41 +19,51 @@ const DropZone: FC<DropZoneProps> = ({
   className = '',
   children
 }) => {
+  console.log('DropZone component mounting...')
   const [isDragOver, setIsDragOver] = useState(false)
+  const [listenersReady, setListenersReady] = useState(false)
 
   useEffect(() => {
-    let unlistenDrop: (() => void) | undefined
-    let unlistenDragOver: (() => void) | undefined
-    let unlistenDragLeave: (() => void) | undefined
+    let unlisten: UnlistenFn | undefined
 
     const setupListeners = async () => {
-      // Listen for file drop events
-      unlistenDrop = await listen<{ paths: string[] }>('tauri://drop', (event) => {
-        const files = event.payload.paths.map(path => ({
-          path,
-          name: path.split('/').pop() || path.split('\\').pop() || 'Unknown'
-        }))
-        onFilesDropped(files)
-        setIsDragOver(false)
+      console.log('Setting up drag-and-drop listeners...')
+
+      const webview = await getCurrentWebview()
+      unlisten = await webview.onDragDropEvent((event: { payload: DragDropEvent }) => {
+        const { payload } = event
+        console.log('Drag-drop event:', payload)
+
+        switch (payload.type) {
+          case 'enter':
+          case 'over':
+            setIsDragOver(true)
+            break
+          case 'drop': {
+            const files = payload.paths.map((path: string) => ({
+              path,
+              name: path.split('/').pop() || path.split('\\').pop() || 'Unknown'
+            }))
+            console.log('Processed files:', files)
+            onFilesDropped(files)
+            setIsDragOver(false)
+            break
+          }
+          case 'leave':
+          default:
+            setIsDragOver(false)
+            break
+        }
       })
 
-      // Listen for drag over events
-      unlistenDragOver = await listen('tauri://drag-over', () => {
-        setIsDragOver(true)
-      })
-
-      // Listen for drag leave events
-      unlistenDragLeave = await listen('tauri://drag-leave', () => {
-        setIsDragOver(false)
-      })
+      console.log('Drag-and-drop listeners setup complete')
+      setListenersReady(true)
     }
 
     setupListeners()
 
     return () => {
-      unlistenDrop?.()
-      unlistenDragOver?.()
-      unlistenDragLeave?.()
+      unlisten?.()
     }
   }, [onFilesDropped])
 
@@ -98,6 +109,11 @@ const DropZone: FC<DropZoneProps> = ({
           <p className="text-xs text-gray-400 mt-2">
             Supports all file types • Creates BagIt-compliant packages
           </p>
+          {listenersReady && (
+            <p className="text-xs text-green-600 mt-1">
+              ✓ Drag-and-drop listeners ready
+            </p>
+          )}
         </div>
       )}
     </div>

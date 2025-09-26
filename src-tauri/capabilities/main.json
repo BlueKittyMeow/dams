@@ -1,0 +1,10 @@
+{
+  "identifier": "main",
+  "description": "Main window capabilities",
+  "windows": ["main"],
+  "permissions": [
+    "core:app:allow-app-show",
+    "core:window:allow-create",
+    "core:event:allow-listen"
+  ]
+}

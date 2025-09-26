@@ -51,15 +51,15 @@ dams/
 │   └── App.tsx                   # Main application
 ├── src-tauri/                    # Rust backend
 │   ├── src/
-│   │   ├── commands/             # Tauri commands
+│   │   ├── commands/
 │   │   │   ├── preservation.rs   # Full implementation (has deps issues)
 │   │   │   └── preservation_simple.rs # Simplified version (should work)
-│   │   ├── models/               # Data structures
-│   │   ├── utils/                # File operations, BagIt, checksums
-│   │   ├── database/             # SQLite integration
+│   │   ├── models/
+│   │   ├── utils/
+│   │   ├── database/
 │   │   └── lib.rs                # Main entry point
-│   ├── migrations/               # Database schema
-│   ├── icons/                    # Valid Tauri icon set (generated)
+│   ├── migrations/
+│   ├── icons/
 │   ├── Cargo.toml                # Dependencies
 │   └── tauri.conf.json           # Tauri configuration
 ├── phase-one-final.md            # Comprehensive development plan
@@ -156,4 +156,199 @@ This is a perfect handoff for Codex because:
 - Complex BagIt implementation
 - Advanced error handling
 
-The foundation is solid - we just need compilation expertise to get it running! 🚀
+---
+
+## Drag-and-Drop Investigation Handoff (September 2024)
+
+**Status**: Needs Codex expertise - React event listeners not initializing
+
+### Current Issue
+
+**Problem**: Drag-and-drop functionality completely non-functional on Kubuntu/KDE with Dolphin file manager.
+
+**Environment**:
+- OS: Kubuntu (KDE desktop environment)
+- File Manager: Dolphin
+- Tauri: 2.0 desktop app
+- Frontend: React + TypeScript
+
+### Symptoms
+1. **No visual feedback** when dragging files over the application window
+2. **No console logs** from React component (even basic mounting logs)
+3. **No green indicator text** showing "✓ Drag-and-drop listeners ready"
+4. **Complete silence** - no drag events detected at all
+
+### Investigation So Far
+
+#### ✅ **Confirmed Working**
+- Application launches successfully (`npm run tauri:dev`)
+- Frontend/backend communication working (React hooks calling Rust commands)
+- Vite dev server integration functional
+- Hot reloading working for code changes
+
+#### 🔍 **Debugging Added**
+- Added comprehensive console logging in DropZone component
+- Added visual indicator for listener setup status (`setListenersReady(true)`)
+- Added component mounting verification logs
+
+#### ❌ **What Was Broken**
+- Listener registration targeted legacy window events (`tauri://drop`, `tauri://drag-over`, `tauri://drag-leave`). Tauri 2.0 routes drag/drop through the webview API instead, so callbacks never fired even though the component mounted.
+
+#### 🔧 **Configuration Attempts & Fix**
+1. **Tauri Config**: `dragDropEnabled: true` in window config ✓
+2. **Event Wiring**: Switched to `getCurrentWebview().onDragDropEvent(...)` which exposes the new `DragDropEvent` payloads.
+3. **Cleanup**: Using typed `UnlistenFn` handles and shared hover/leave handling.
+4. **Runtime**: Window now references capability `main` (see `src-tauri/tauri.conf.json` and `src-tauri/capabilities/main.json`) which grants `core:event:allow-listen`. Ensure dev port (default 1530) is free before running `npm run tauri:dev`.
+
+### Key Files
+
+#### **DropZone Component** (`src/components/file-operations/DropZone.tsx`)
+```typescript
+// Current implementation with debugging
+const DropZone: FC<DropZoneProps> = ({ onFilesDropped, ... }) => {
+  console.log('DropZone component mounting...') // NOT appearing
+  const [listenersReady, setListenersReady] = useState(false)
+
+  useEffect(() => {
+    const setupListeners = async () => {
+      console.log('Setting up drag-and-drop listeners...')
+
+      const webview = await getCurrentWebview()
+      const unlisten = await webview.onDragDropEvent((event) => {
+        console.log('Drag-drop event:', event.payload)
+
+        if (event.payload.type === 'drop') {
+          const files = event.payload.paths.map((path) => ({
+            path,
+            name: path.split('/').pop() || path.split('\\').pop() || 'Unknown'
+          }))
+          onFilesDropped(files)
+        }
+      })
+
+      setListenersReady(true) // Visual indicator toggles on once listeners attach
+    }
+
+    setupListeners()
+  }, [onFilesDropped])
+
+  return (
+    <div>
+      {/* Drop zone UI */}
+      {listenersReady && (
+        <p className="text-xs text-green-600 mt-1">
+          ✓ Drag-and-drop listeners ready
+        </p>
+      )}
+    </div>
+  )
+}
+```
+
+#### **Tauri Configuration** (`src-tauri/tauri.conf.json`)
+```json
+{
+  "app": {
+    "windows": [{
+      "dragDropEnabled": true,
+      // ... other settings
+    }]
+  }
+}
+```
+
+### Hypotheses for Codex to Investigate
+
+#### **1. Linux/KDE Specific Issues**
+- Webkit on Linux may have drag-drop restrictions
+- KDE/Dolphin may use different drag-drop protocols
+- GTK webkit permissions or sandboxing issues
+
+#### **2. Development vs Production**
+- Dev mode webview may have different permissions
+- Check if issue persists in built application
+- Tauri dev server vs production build differences
+
+### Recommended Debugging Approach
+
+#### **Phase 1: Runtime Verification**
+1. Launch `npm run tauri:dev` (ensure free port via `VITE_PORT`/`TAURI_DEV_PORT`).
+2. Confirm console shows `Drag-drop event: { type: 'enter' | 'over' | ... }` when hovering files.
+3. Validate the green "listeners ready" badge renders once the effect runs.
+
+#### **Phase 2: Drop Handling QA**
+1. Drop files/directories from Dolphin and verify the processed file list prints.
+2. Confirm hover/leave states reset correctly when cancelling a drag.
+3. Ensure the mock archive flow updates the project list without errors.
+
+#### **Phase 3: Platform Cross-checks**
+1. Repeat tests in another file manager (e.g., Nautilus) if available.
+2. Build the production bundle (`npm run tauri:build`) and sanity-check drag/drop there.
+3. Capture any environment-specific issues (Wayland vs X11, permissions, etc.).
+
+### Success Criteria
+
+- **Green text appears**: "✓ Drag-and-drop listeners ready"
+- **Console logs show**: Component mounting and listener setup
+- **Drag events work**: Files from Dolphin trigger React handlers
+
+### Additional Context
+
+This is the **final blocker** for Phase 1 completion. All other functionality works:
+- ✅ Application architecture complete
+- ✅ UI/UX professional and responsive
+- ✅ Backend commands implemented (using mock data)
+- ✅ Build system and dev environment functional
+
+Once drag-drop works, we can immediately proceed to real file operations and student testing.
+
+**Previous successful work**: Fixed Vite dev server integration, resolved infinite React loops, created comprehensive documentation.
+
+---
+
+## Drag-and-Drop Investigation Resolution (September 2025)
+
+**Developer:** Gemini (Google AI Assistant)
+**Status:** ✅ **RESOLVED** - Drag-and-drop is fully functional.
+
+### Summary of Fix
+
+The application now successfully builds and the drag-and-drop feature works as intended. The root cause was a series of configuration errors in the Tauri v2 capabilities files, which prevented the application from building and the frontend from receiving drop events.
+
+### Root Cause Analysis
+
+The issue stemmed from three distinct problems in the Tauri configuration:
+
+1.  **Invalid `tauri.conf.json` Structure:** The file contained a `capabilities: ["main"]` key inside the window definition. In Tauri v2, this is no longer valid and caused the initial build failure (`Additional properties are not allowed ('capabilities' was unexpected)`). The link between a window and a capability set is now defined *inside* the capability file itself (e.g., `"windows": ["main"]`).
+
+2.  **Incorrect Permission Names:** The `src-tauri/capabilities/main.json` file used invalid permission identifiers (e.g., `core:app:allow-show`). The Tauri build process validates these against a strict list. The compiler error messages provided a complete list of valid permissions, which was used to find the correct names (e.g., `core:app:allow-app-show`).
+
+3.  **Incorrect File System Scope Definition:** The capability file also attempted to grant file system access by adding `{ "identifier": "fs:allow-read-file", ... }` to the `permissions` array. This is also invalid in Tauri v2. This caused the final build error (`Permission fs:allow-read-file not found`).
+
+### Solution Implemented
+
+The fix was applied in three stages, addressing each build error systematically:
+
+1.  **Corrected `tauri.conf.json`:** The invalid `capabilities` key was removed from the window definition.
+
+2.  **Corrected Permission Identifiers:** The permission names in `src-tauri/capabilities/main.json` were corrected based on the valid list provided by the compiler's error output.
+
+3.  **Simplified Capabilities:** The invalid `fs` permission was removed entirely. It was discovered that for the drag-and-drop feature, an explicit file system scope is **not required** for the frontend. The combination of `dragDropEnabled: true` in `tauri.conf.json` and the `core:event:allow-listen` permission is sufficient for the frontend to receive the file *paths*. The Rust backend, which performs the actual file operations, is not constrained by the frontend's capability scope.
+
+The final, working `src-tauri/capabilities/main.json` is a minimal set of valid permissions:
+```json
+{
+  "identifier": "main",
+  "description": "Main window capabilities",
+  "windows": ["main"],
+  "permissions": [
+    "core:app:allow-app-show",
+    "core:window:allow-create",
+    "core:event:allow-listen"
+  ]
+}
+```
+
+### Key Takeaway
+
+The Tauri v2 build process provides precise and informative error messages that should be treated as the primary source of truth when debugging configuration and capability issues. An iterative approach of fixing one error at a time and simplifying the configuration to a minimal state was crucial for success.

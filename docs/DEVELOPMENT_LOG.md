@@ -79,6 +79,10 @@ This development log documents the successful completion of CWPT Phase 1 objecti
 - **Frontend Integration**: Corrected build configuration for Vite dev server
 - **Infinite Loop Fix**: Resolved React useEffect dependency issues with useCallback
 - **Development Environment**: Established working dev server setup
+- **Tauri v2 Capability Fixes**: *Developer: Gemini* - Resolved a series of build-breaking errors related to the Tauri v2 capabilities system, which was blocking the drag-and-drop functionality. The fix involved:
+    1. Removing the invalid `capabilities` key from the window definition in `tauri.conf.json`.
+    2. Correcting permission names in `src-tauri/capabilities/main.json` based on the compiler's error output.
+    3. Simplifying the capability set to a minimal, valid configuration, which proved sufficient for the drag-and-drop feature to work as intended.
 
 ### ✅ **Documentation & Project Management**
 *Developer: Claude*
